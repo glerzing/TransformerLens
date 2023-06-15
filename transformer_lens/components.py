@@ -26,7 +26,7 @@ class Embed(nn.Module):
             cfg = HookedTransformerConfig.from_dict(cfg)
         self.cfg = cfg
         self.W_E: Float[torch.Tensor, "d_vocab d_model"] = nn.Parameter(
-            torch.empty(self.cfg.d_vocab, self.cfg.d_model)
+            torch.empty(self.cfg.d_vocab, self.cfg.d_model, dtype=cfg.dtype)
         )
 
     def forward(
@@ -45,10 +45,10 @@ class Unembed(nn.Module):
         self.cfg = cfg
         # Note that there's a separate variable for d_vocab_out and d_vocab (the input vocab size). For language tasks these are always the same, but for algorithmic tasks we may want them to be different.
         self.W_U: Float[torch.Tensor, "d_model d_vocab_out"] = nn.Parameter(
-            torch.empty(self.cfg.d_model, self.cfg.d_vocab_out)
+            torch.empty(self.cfg.d_model, self.cfg.d_vocab_out, dtype=cfg.dtype)
         )
         self.b_U: Float[torch.Tensor, "d_vocab_out"] = nn.Parameter(
-            torch.zeros(self.cfg.d_vocab_out)
+            torch.zeros(self.cfg.d_vocab_out, dtype=cfg.dtype)
         )
 
     def forward(
@@ -71,7 +71,9 @@ class PosEmbed(nn.Module):
         if isinstance(cfg, Dict):
             cfg = HookedTransformerConfig.from_dict(cfg)
         self.cfg = cfg
-        self.W_pos = nn.Parameter(torch.empty(self.cfg.n_ctx, self.cfg.d_model))
+        self.W_pos = nn.Parameter(
+            torch.empty(self.cfg.n_ctx, self.cfg.d_model, dtype=cfg.dtype)
+        )
 
     def forward(
         self, tokens: Int[torch.Tensor, "batch pos"], past_kv_pos_offset: int = 0
@@ -102,7 +104,9 @@ class TokenTypeEmbed(nn.Module):
         if isinstance(cfg, Dict):
             cfg = HookedTransformerConfig.from_dict(cfg)
         self.cfg = cfg
-        self.W_token_type = nn.Parameter(torch.empty(2, self.cfg.d_model))
+        self.W_token_type = nn.Parameter(
+            torch.empty(2, self.cfg.d_model, dtype=cfg.dtype)
+        )
 
     def forward(self, token_type_ids: Int[torch.Tensor, "batch pos"]):
         return self.W_token_type[token_type_ids, :]
@@ -162,8 +166,8 @@ class BertMLMHead(nn.Module):
         if isinstance(cfg, Dict):
             cfg = HookedTransformerConfig.from_dict(cfg)
         self.cfg = cfg
-        self.W = nn.Parameter(torch.empty(cfg.d_model, cfg.d_model))
-        self.b = nn.Parameter(torch.zeros(cfg.d_model))
+        self.W = nn.Parameter(torch.empty(cfg.d_model, cfg.d_model, dtype=cfg.dtype))
+        self.b = nn.Parameter(torch.zeros(cfg.d_model, dtype=cfg.dtype))
         self.act_fn = nn.GELU()
         self.ln = LayerNorm(cfg)
 
@@ -240,8 +244,8 @@ class LayerNorm(nn.Module):
         else:
             self.length = length
 
-        self.w = nn.Parameter(torch.ones(self.length))
-        self.b = nn.Parameter(torch.zeros(self.length))
+        self.w = nn.Parameter(torch.ones(self.length, dtype=cfg.dtype))
+        self.b = nn.Parameter(torch.zeros(self.length, dtype=cfg.dtype))
 
         # Adds a hook point for the normalisation scale factor
         self.hook_scale = HookPoint()  # [batch, pos, 1]
@@ -307,7 +311,7 @@ class RMSNorm(nn.Module):
         else:
             self.length = length
 
-        self.w = nn.Parameter(torch.ones(self.length))
+        self.w = nn.Parameter(torch.ones(self.length, dtype=cfg.dtype))
 
         # Adds a hook point for the normalisation scale factor
         self.hook_scale = HookPoint()  # [batch, pos, 1]
@@ -345,21 +349,35 @@ class Attention(nn.Module):
             cfg = HookedTransformerConfig.from_dict(cfg)
         self.cfg = cfg
         self.W_Q = nn.Parameter(
-            torch.empty(self.cfg.n_heads, self.cfg.d_model, self.cfg.d_head)
+            torch.empty(
+                self.cfg.n_heads, self.cfg.d_model, self.cfg.d_head, dtype=cfg.dtype
+            )
         )
         self.W_K = nn.Parameter(
-            torch.empty(self.cfg.n_heads, self.cfg.d_model, self.cfg.d_head)
+            torch.empty(
+                self.cfg.n_heads, self.cfg.d_model, self.cfg.d_head, dtype=cfg.dtype
+            )
         )
         self.W_V = nn.Parameter(
-            torch.empty(self.cfg.n_heads, self.cfg.d_model, self.cfg.d_head)
+            torch.empty(
+                self.cfg.n_heads, self.cfg.d_model, self.cfg.d_head, dtype=cfg.dtype
+            )
         )
         self.W_O = nn.Parameter(
-            torch.empty(self.cfg.n_heads, self.cfg.d_head, self.cfg.d_model)
+            torch.empty(
+                self.cfg.n_heads, self.cfg.d_head, self.cfg.d_model, dtype=cfg.dtype
+            )
         )
-        self.b_Q = nn.Parameter(torch.zeros(self.cfg.n_heads, self.cfg.d_head))
-        self.b_K = nn.Parameter(torch.zeros(self.cfg.n_heads, self.cfg.d_head))
-        self.b_V = nn.Parameter(torch.zeros(self.cfg.n_heads, self.cfg.d_head))
-        self.b_O = nn.Parameter(torch.zeros(self.cfg.d_model))
+        self.b_Q = nn.Parameter(
+            torch.zeros(self.cfg.n_heads, self.cfg.d_head, dtype=cfg.dtype)
+        )
+        self.b_K = nn.Parameter(
+            torch.zeros(self.cfg.n_heads, self.cfg.d_head, dtype=cfg.dtype)
+        )
+        self.b_V = nn.Parameter(
+            torch.zeros(self.cfg.n_heads, self.cfg.d_head, dtype=cfg.dtype)
+        )
+        self.b_O = nn.Parameter(torch.zeros(self.cfg.d_model, dtype=cfg.dtype))
 
         self.attn_type = attn_type
         # Create a max_ctx x max_ctx mask, with True iff that query position
@@ -406,7 +424,7 @@ class Attention(nn.Module):
             self.hook_rot_k = HookPoint()
             self.hook_rot_q = HookPoint()
             sin, cos = self.calculate_sin_cos_rotary(
-                self.cfg.rotary_dim, self.cfg.n_ctx
+                self.cfg.rotary_dim, self.cfg.n_ctx, dtype=self.cfg.dtype
             )
             self.register_buffer("rotary_sin", sin)
             self.register_buffer("rotary_cos", cos)
@@ -615,7 +633,11 @@ class Attention(nn.Module):
         return q, k
 
     def calculate_sin_cos_rotary(
-        self, rotary_dim: int, n_ctx: int, base: int = 10000
+        self,
+        rotary_dim: int,
+        n_ctx: int,
+        base: int = 10000,
+        dtype: torch.dtype = torch.float32,
     ) -> Tuple[
         Float[torch.Tensor, "n_ctx rotary_dim"], Float[torch.Tensor, "n_ctx rotary_dim"]
     ]:
@@ -627,6 +649,7 @@ class Attention(nn.Module):
         """
         pos = torch.arange(n_ctx, dtype=torch.float32)
         dim = torch.arange(rotary_dim // 2, dtype=torch.float32)
+        
         # A set of frequencies evenly spaced in log space
         freq = base ** (dim / (rotary_dim / 2))
         if (
@@ -638,7 +661,7 @@ class Attention(nn.Module):
             freq = einops.repeat(freq, "d -> (d 2)")
         # Create a n_ctx x rotary_dim tensor, where each column is an arithmetic sequence of angles in that frequency
         angles = pos[:, None] / freq[None, :]
-        return torch.sin(angles), torch.cos(angles)
+        return torch.sin(angles).to(dtype), torch.cos(angles).to(dtype)
 
     def rotate_every_two(
         self, x: Float[torch.Tensor, "... rotary_dim"]
@@ -690,10 +713,14 @@ class MLP(nn.Module):
         if isinstance(cfg, Dict):
             cfg = HookedTransformerConfig.from_dict(cfg)
         self.cfg = cfg
-        self.W_in = nn.Parameter(torch.empty(self.cfg.d_model, self.cfg.d_mlp))
-        self.b_in = nn.Parameter(torch.zeros(self.cfg.d_mlp))
-        self.W_out = nn.Parameter(torch.empty(self.cfg.d_mlp, self.cfg.d_model))
-        self.b_out = nn.Parameter(torch.zeros(self.cfg.d_model))
+        self.W_in = nn.Parameter(
+            torch.empty(self.cfg.d_model, self.cfg.d_mlp, dtype=cfg.dtype)
+        )
+        self.b_in = nn.Parameter(torch.zeros(self.cfg.d_mlp, dtype=cfg.dtype))
+        self.W_out = nn.Parameter(
+            torch.empty(self.cfg.d_mlp, self.cfg.d_model, dtype=cfg.dtype)
+        )
+        self.b_out = nn.Parameter(torch.zeros(self.cfg.d_model, dtype=cfg.dtype))
 
         self.hook_pre = HookPoint()  # [batch, pos, d_mlp]
         self.hook_post = HookPoint()  # [batch, pos, d_mlp]
@@ -751,11 +778,17 @@ class GatedMLP(nn.Module):
         if isinstance(cfg, Dict):
             cfg = HookedTransformerConfig.from_dict(cfg)
         self.cfg = cfg
-        self.W_in = nn.Parameter(torch.empty(self.cfg.d_model, self.cfg.d_mlp))
-        self.W_gate = nn.Parameter(torch.empty(self.cfg.d_model, self.cfg.d_mlp))
-        self.b_in = nn.Parameter(torch.zeros(self.cfg.d_mlp))
-        self.W_out = nn.Parameter(torch.empty(self.cfg.d_mlp, self.cfg.d_model))
-        self.b_out = nn.Parameter(torch.zeros(self.cfg.d_model))
+        self.W_in = nn.Parameter(
+            torch.empty(self.cfg.d_model, self.cfg.d_mlp, dtype=cfg.dtype)
+        )
+        self.W_gate = nn.Parameter(
+            torch.empty(self.cfg.d_model, self.cfg.d_mlp, dtype=cfg.dtype)
+        )
+        self.b_in = nn.Parameter(torch.zeros(self.cfg.d_mlp, dtype=cfg.dtype))
+        self.W_out = nn.Parameter(
+            torch.empty(self.cfg.d_mlp, self.cfg.d_model, dtype=cfg.dtype)
+        )
+        self.b_out = nn.Parameter(torch.zeros(self.cfg.d_model, dtype=cfg.dtype))
 
         # hook on gate output but before act_fn
         self.hook_pre = HookPoint()  # [batch, pos, d_mlp]

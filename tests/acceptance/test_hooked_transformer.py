@@ -1,5 +1,6 @@
 import gc
 import os
+import unittest
 
 import pytest
 import torch
@@ -135,12 +136,6 @@ def test_from_pretrained_no_processing(name, expected_loss):
     assert (reff_loss.item() - expected_loss) < 4e-5
 
 
-def test_from_pretrained_dtype():
-    """Check that the parameter `torch_dtype` works"""
-    model = HookedTransformer.from_pretrained("solu-1l", torch_dtype=torch.bfloat16)
-    assert model.W_K.dtype == torch.bfloat16
-
-
 def test_from_pretrained_revision():
     """
     Check that the from_pretrained parameter `revision` (= git version) works
@@ -154,6 +149,25 @@ def test_from_pretrained_revision():
         pass
     else:
         raise AssertionError("Should have raised an error")
+
+
+def test_16bits():
+    """Check the 16 bits loading and inferences."""
+    model = HookedTransformer.from_pretrained("solu-1l", torch_dtype=torch.bfloat16)
+    assert model.W_K.dtype == torch.bfloat16
+
+    _ = model("Hello, world")
+    _ = model.generate("Hello, world")
+
+
+@unittest.skipUnless(torch.cuda.is_available(), "GPU needed to execute test_8bits")
+def test_8bits():
+    """Check the 8 bits loading and inferences."""
+    model = HookedTransformer.from_pretrained(
+        "solu-1l", load_in_8bit=True, device_map="auto"
+    )
+    _ = model("Hello, world")
+    _ = model.generate("Hello, world")
 
 
 @torch.no_grad()

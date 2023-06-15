@@ -125,6 +125,7 @@ class HookedTransformerConfig:
         use_hook_tokens (bool): Will add a hook point on the token input to
             HookedTransformer.forward, which lets you cache or intervene on the tokens.
             Defaults to False.
+        dtype (torch.dtype, *optional*): The model's dtype. Defaults to torch.float32.
     """
 
     n_layers: int
@@ -167,6 +168,7 @@ class HookedTransformerConfig:
     n_params: Optional[int] = None
     use_hook_tokens: bool = False
     gated_mlp: bool = False
+    dtype: torch.dtype = torch.float32
 
     def __post_init__(self):
         if self.n_heads == -1:

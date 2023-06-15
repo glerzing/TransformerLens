@@ -1,3 +1,4 @@
+import unittest
 from typing import List
 
 import pytest
@@ -136,12 +137,6 @@ def test_run_with_cache(our_bert, huggingface_bert, hello_world_tokens):
     assert "mlm_head.ln.hook_normalized" in cache
 
 
-def test_from_pretrained_dtype():
-    """Check that the parameter `torch_dtype` works"""
-    model = HookedEncoder.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16)
-    assert model.W_K.dtype == torch.bfloat16
-
-
 def test_from_pretrained_revision():
     """
     Check that the from_pretrained parameter `revision` (= git version) works
@@ -155,6 +150,23 @@ def test_from_pretrained_revision():
         pass
     else:
         raise AssertionError("Should have raised an error")
+
+
+def test_16bits():
+    """Check the 16 bits loading and inferences."""
+    model = HookedEncoder.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16)
+    assert model.W_K.dtype == torch.bfloat16
+
+    _ = model(model.tokenizer("Hello, world", return_tensors="pt")["input_ids"])
+
+
+@unittest.skipUnless(torch.cuda.is_available(), "GPU needed to execute test_8bits")
+def test_8bits():
+    """Check the 8 bits loading and inferences."""
+    model = HookedEncoder.from_pretrained(
+        MODEL_NAME, load_in_8bit=True, device_map="auto"
+    )
+    _ = model(model.tokenizer("Hello, world", return_tensors="pt")["input_ids"])
 
 
 def test_predictions(our_bert, huggingface_bert, tokenizer):
