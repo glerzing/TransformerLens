@@ -217,12 +217,15 @@ class LayerNormPre(nn.Module):
         Float[torch.Tensor, "batch pos d_model"],
         Float[torch.Tensor, "batch pos head_index d_model"],
     ]:
+        if self.cfg.dtype not in [torch.float32, torch.float64]:
+            x = x.to(torch.float32)
+
         x = x - x.mean(axis=-1, keepdim=True)  # [batch, pos, length]
         scale: Union[
             Float[torch.Tensor, "batch pos 1"],
             Float[torch.Tensor, "batch pos head_index 1"],
         ] = self.hook_scale((x.pow(2).mean(-1, keepdim=True) + self.eps).sqrt())
-        return self.hook_normalized(x / scale)
+        return self.hook_normalized(x / scale).to(self.cfg.dtype)
 
 
 class LayerNorm(nn.Module):
@@ -262,12 +265,14 @@ class LayerNorm(nn.Module):
         Float[torch.Tensor, "batch pos d_model"],
         Float[torch.Tensor, "batch pos head_index d_model"],
     ]:
+        if self.cfg.dtype not in [torch.float32, torch.float64]:
+            x = x.to(torch.float32)
         x = x - x.mean(axis=-1, keepdim=True)  # [batch, pos, length]
         scale: Float[torch.Tensor, "batch pos 1"] = self.hook_scale(
             (x.pow(2).mean(-1, keepdim=True) + self.eps).sqrt()
         )
         x = x / scale  # [batch, pos, length]
-        return self.hook_normalized(x * self.w + self.b)
+        return self.hook_normalized(x * self.w + self.b).to(self.cfg.dtype)
 
 
 class RMSNormPre(nn.Module):
