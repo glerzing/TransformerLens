@@ -838,6 +838,10 @@ class HookedTransformer(HookedRootModule):
                 functions when compatible. For some models or arguments it doesn't work, especially for
                 models that are not internally loaded with HuggingFace's from_pretrained (e.g. SoLU models).
         """
+        assert not (
+            from_pretrained_kwargs.get("load_in_8bit", False) or
+            from_pretrained_kwargs.get("load_in_4bit", False)
+        ), "Quantization not supported"
 
         # Get the model name used in HuggingFace, rather than the alias.
         official_model_name = loading.get_official_model_name(model_name)
@@ -992,6 +996,7 @@ class HookedTransformer(HookedRootModule):
 
         if move_state_dict_to_device:
             for k, v in state_dict.items():
+                v = v.to(self.cfg.dtype)
                 if k.startswith("embed") or k.startswith("pos_embed"):
                     state_dict[k] = v.to(
                         devices.get_device_for_block_index(0, self.cfg)

@@ -4,7 +4,7 @@ import unittest
 
 import pytest
 import torch
-from transformers import AutoConfig
+from transformers import AutoConfig, AutoModelForCausalLM
 
 from transformer_lens import HookedTransformer
 from transformer_lens.loading_from_pretrained import OFFICIAL_MODEL_NAMES
@@ -61,6 +61,24 @@ no_processing = [
         10.530948638916016,
     ),  # TODO can't be loaded with from_pretrained
 ]
+
+
+def check_similarity_with_hf_model(tl_model, hf_model, prompt="Hello, world!"):
+    """
+    Check that the TransformerLens model and the HuggingFace model
+    give approximately the same results.
+
+    The logits typically differ by a constant value, but check only the results
+    after the softmax because this is what matters most.
+    """
+    tokens = tl_model.tokenizer.encode(prompt, return_tensors="pt")
+    logits = tl_model(tokens, prepend_bos=False)
+    hf_logits = hf_model(tokens).logits
+    assert torch.allclose(
+        torch.softmax(logits, dim=-1),
+        torch.softmax(hf_logits, dim=-1),
+        atol=1e-5
+    )
 
 
 @pytest.mark.parametrize("name,expected_loss", list(loss_store.items()))
@@ -150,24 +168,34 @@ def test_from_pretrained_revision():
     else:
         raise AssertionError("Should have raised an error")
 
+@pytest.mark.parametrize("dtype", [torch.float64, torch.float32, torch.bfloat16])
+def test_dtypes(dtype):
+    """Check the loading and inferences for different dtypes."""
+    model = HookedTransformer.from_pretrained("roneneldan/TinyStories-1M", torch_dtype=dtype)
+    hf_model = AutoModelForCausalLM.from_pretrained("roneneldan/TinyStories-1M", torch_dtype=dtype)
 
-def test_16bits():
-    """Check the 16 bits loading and inferences."""
-    model = HookedTransformer.from_pretrained("solu-1l", torch_dtype=torch.bfloat16)
-    assert model.W_K.dtype == torch.bfloat16
+    for layer_name, layer in model.state_dict().items():
+        assert layer.dtype in [dtype, torch.bool] or "IGNORE" in layer_name
+
+    check_similarity_with_hf_model(model, hf_model)
+
+    # Check that generate doesn't throw an error
+    _ = model.generate("Hello, World!")
+
+
+@unittest.skipUnless(torch.cuda.is_available(), "GPU needed to execute test_float16")
+def test_float16():
+    """Check the 16 bits loading and inferences.
+    Note that bfloat16 is generally prefered to float16 for ML due to numerical instabilities,
+    and some float16 operations require having a GPU."""
+    model = HookedTransformer.from_pretrained("solu-1l", torch_dtype=torch.float16)
+    assert model.W_K.dtype == torch.float16
 
     _ = model("Hello, world")
     _ = model.generate("Hello, world")
 
-
-@unittest.skipUnless(torch.cuda.is_available(), "GPU needed to execute test_8bits")
-def test_8bits():
-    """Check the 8 bits loading and inferences."""
-    model = HookedTransformer.from_pretrained(
-        "solu-1l", load_in_8bit=True, device_map="auto"
-    )
-    _ = model("Hello, world")
-    _ = model.generate("Hello, world")
+    model.cfg.dtype = torch.float16
+    check_similarity_with_hf_model(model, hf_model)
 
 
 @torch.no_grad()
