@@ -541,9 +541,6 @@ class Attention(nn.Module):
         if self.cfg.positional_embedding_type == "rotary":
             q, k = self.rotary_rotate_qk(q, k, kv_cache_pos_offset)
 
-        # Apply the attention scale before the multiplication, for numerical stability
-        q = q / self.attn_scale
-
         attn_scores = (
             einsum(
                 "batch query_pos head_index d_head, \
@@ -552,6 +549,7 @@ class Attention(nn.Module):
                 q,
                 k,
             )
+            / self.attn_scale
         )  # [batch, head_index, query_pos, key_pos]
         if self.cfg.attention_dir == "causal":
             # If causal attention, we mask it to only attend backwards. If bidirectional, we don't mask.
