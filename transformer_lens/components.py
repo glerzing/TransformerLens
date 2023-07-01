@@ -541,6 +541,11 @@ class Attention(nn.Module):
         if self.cfg.positional_embedding_type == "rotary":
             q, k = self.rotary_rotate_qk(q, k, kv_cache_pos_offset)
 
+        if self.cfg.dtype not in [torch.float32, torch.float64]:
+            # If using 16 bits, increase the precision to avoid numerical instabilities
+            q = q.to(torch.float32)
+            k = k.to(torch.float32)
+
         attn_scores = (
             einsum(
                 "batch query_pos head_index d_head, \
@@ -563,6 +568,7 @@ class Attention(nn.Module):
         pattern = self.hook_pattern(
             F.softmax(attn_scores, dim=-1)
         )  # [batch, head_index, query_pos, key_pos]
+        pattern = pattern.to(self.cfg.dtype)
         z = self.hook_z(
             einsum(
                 "batch key_pos head_index d_head, \
