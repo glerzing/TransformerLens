@@ -189,7 +189,7 @@ def check_dtype(dtype, margin=0.01):
     for model_path in ["gpt2", "roneneldan/TinyStories-33M", "EleutherAI/pythia-70m"]:
         device = "cuda" if torch.cuda.is_available() else "cpu"
         model = HookedTransformer.from_pretrained(model_path, torch_dtype=dtype, device=device)
-        hf_model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=dtype, device=device)
+        hf_model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=dtype, device_map =device)
 
         for layer_name, layer in model.state_dict().items():
             assert layer.dtype in [dtype, torch.bool] or "IGNORE" in layer_name
