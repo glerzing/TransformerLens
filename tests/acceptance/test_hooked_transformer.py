@@ -168,7 +168,7 @@ def check_similarity_with_hf_model(tl_model, hf_model, prompt="Hello, world!"):
     )
 
 
-def check_performance(tl_model, hf_model, margin=0.01):
+def check_performance(tl_model, hf_model, margin=0.001):
     """
     Check that the TransformerLens model and the HuggingFace have
     approximately the same confidence in the expected answer.
@@ -184,7 +184,7 @@ def check_performance(tl_model, hf_model, margin=0.01):
     hf_prob = torch.softmax(hf_logits, dim=-1)[expected_token].item()
     assert tl_prob + margin > hf_prob
 
-def check_dtype(dtype, margin=0.01):
+def check_dtype(dtype, margin=0.001):
     """Check the loading and inferences for different dtypes."""
     for model_path in ["gpt2", "roneneldan/TinyStories-33M", "EleutherAI/pythia-70m"]:
         device = "cuda" if torch.cuda.is_available() else "cpu"
