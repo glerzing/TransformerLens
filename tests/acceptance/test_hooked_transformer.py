@@ -187,7 +187,8 @@ def check_performance(tl_model, hf_model, margin=0.01):
 def check_dtype(dtype, margin=0.01):
     """Check the loading and inferences for different dtypes."""
     for model_path in ["gpt2", "roneneldan/TinyStories-33M", "EleutherAI/pythia-70m"]:
-        model = HookedTransformer.from_pretrained(model_path, torch_dtype=dtype)
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        model = HookedTransformer.from_pretrained(model_path, torch_dtype=dtype, device=device)
         hf_model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=dtype)
 
         for layer_name, layer in model.state_dict().items():
