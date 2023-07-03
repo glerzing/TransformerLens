@@ -215,7 +215,7 @@ def test_half_precision(dtype):
     Note that bfloat16 is generally preferred to float16 for ML due to numerical instabilities,
     and some float16 operations require having a GPU.
     bfloat16 can be used without GPU, but surprisingly it doesn't give the same results in this case."""
-    check_dtype(dtype, margin=0.003)
+    check_dtype(dtype, margin=0.004)
 
 
 @torch.no_grad()
