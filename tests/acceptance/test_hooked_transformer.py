@@ -63,24 +63,6 @@ no_processing = [
 ]
 
 
-def check_similarity_with_hf_model(tl_model, hf_model, prompt="Hello, world!"):
-    """
-    Check that the TransformerLens model and the HuggingFace model
-    give approximately the same results.
-
-    The logits typically differ by a constant value, but check only the results
-    after the softmax because this is what matters most.
-    """
-    tokens = tl_model.tokenizer.encode(prompt, return_tensors="pt")
-    logits = tl_model(tokens, prepend_bos=False)
-    hf_logits = hf_model(tokens).logits
-    assert torch.allclose(
-        torch.softmax(logits, dim=-1),
-        torch.softmax(hf_logits, dim=-1),
-        atol=1e-5
-    )
-
-
 @pytest.mark.parametrize("name,expected_loss", list(loss_store.items()))
 def test_model(name, expected_loss):
     # Runs the model on short text and checks if the loss is as expected
@@ -168,34 +150,67 @@ def test_from_pretrained_revision():
     else:
         raise AssertionError("Should have raised an error")
 
-@pytest.mark.parametrize("dtype", [torch.float64, torch.float32, torch.bfloat16])
-def test_dtypes(dtype):
+def check_similarity_with_hf_model(tl_model, hf_model, prompt="Hello, world!"):
+    """
+    Check that the TransformerLens model and the HuggingFace model
+    give approximately the same results.
+
+    The logits typically differ by a constant value, but check only the results
+    after the softmax because this is what matters most.
+    """
+    tokens = tl_model.tokenizer.encode(prompt, return_tensors="pt")
+    logits = tl_model(tokens, prepend_bos=False)
+    hf_logits = hf_model(tokens).logits
+    assert torch.allclose(
+        torch.softmax(logits, dim=-1),
+        torch.softmax(hf_logits, dim=-1),
+        atol=1e-5
+    )
+
+
+def check_performance(tl_model, hf_model, margin=0.01):
+    """
+    Check that the TransformerLens model and the HuggingFace have
+    approximately the same confidence in the expected answer.
+    """
+    prompt = " Unable"
+    tokens = tl_model.tokenizer(prompt, return_tensors="pt")["input_ids"]
+
+    expected_token = tl_model.tokenizer.encode(" to")[0]  # Assume this is the expected token to predict
+
+    tl_logits = tl_model(tokens, prepend_bos=False)[0,-1]
+    hf_logits = hf_model(tokens).logits[0,-1]
+    tl_prob = torch.softmax(tl_logits, dim=-1)[expected_token].item()
+    hf_prob = torch.softmax(hf_logits, dim=-1)[expected_token].item()
+    assert tl_prob + margin > hf_prob
+
+def check_dtype(dtype, margin=0.01):
     """Check the loading and inferences for different dtypes."""
-    model = HookedTransformer.from_pretrained("roneneldan/TinyStories-1M", torch_dtype=dtype)
-    hf_model = AutoModelForCausalLM.from_pretrained("roneneldan/TinyStories-1M", torch_dtype=dtype)
+    for model_path in ["gpt2", "roneneldan/TinyStories-33M", "EleutherAI/pythia-70m"]:
+        model = HookedTransformer.from_pretrained(model_path, torch_dtype=dtype)
+        hf_model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=dtype)
 
-    for layer_name, layer in model.state_dict().items():
-        assert layer.dtype in [dtype, torch.bool] or "IGNORE" in layer_name
+        for layer_name, layer in model.state_dict().items():
+            assert layer.dtype in [dtype, torch.bool] or "IGNORE" in layer_name
 
-    check_similarity_with_hf_model(model, hf_model)
+        check_performance(model, hf_model, margin)
 
-    # Check that generate doesn't throw an error
-    _ = model.generate("Hello, World!")
+        # Check that generate doesn't throw an error
+        _ = model.generate("Hello, World!")
+
+@pytest.mark.parametrize("dtype", [torch.float64, torch.float32])
+def test_dtypes(dtype):
+    check_dtype(dtype, margin=5e-5)
 
 
-@unittest.skipUnless(torch.cuda.is_available(), "GPU needed to execute test_float16")
-def test_float16():
+@unittest.skipUnless(torch.cuda.is_available(), "GPU needed to execute test_half_precision")
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16])
+def test_half_precision(dtype):
     """Check the 16 bits loading and inferences.
-    Note that bfloat16 is generally prefered to float16 for ML due to numerical instabilities,
-    and some float16 operations require having a GPU."""
-    model = HookedTransformer.from_pretrained("solu-1l", torch_dtype=torch.float16)
-    assert model.W_K.dtype == torch.float16
-
-    _ = model("Hello, world")
-    _ = model.generate("Hello, world")
-
-    model.cfg.dtype = torch.float16
-    check_similarity_with_hf_model(model, hf_model)
+    Note that bfloat16 is generally preferred to float16 for ML due to numerical instabilities,
+    and some float16 operations require having a GPU.
+    bfloat16 can be used without GPU, but surprisingly it doesn't give the same results in this case."""
+    check_dtype(dtype)
 
 
 @torch.no_grad()
