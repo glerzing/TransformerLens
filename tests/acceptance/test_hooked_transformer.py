@@ -178,8 +178,8 @@ def check_performance(tl_model, hf_model, margin=0.01):
 
     expected_token = tl_model.tokenizer.encode(" to")[0]  # Assume this is the expected token to predict
 
-    tl_logits = tl_model(tokens, prepend_bos=False)[0,-1]
-    hf_logits = hf_model(tokens).logits[0,-1]
+    tl_logits = tl_model(tokens, prepend_bos=False)[0,-1].float()
+    hf_logits = hf_model(tokens).logits[0,-1].float()
     tl_prob = torch.softmax(tl_logits, dim=-1)[expected_token].item()
     hf_prob = torch.softmax(hf_logits, dim=-1)[expected_token].item()
     assert tl_prob + margin > hf_prob
