@@ -213,6 +213,11 @@ class HookedEncoder(HookedRootModule):
             "that the last LayerNorm in a block cannot be folded."
         )
 
+        assert not (
+            from_pretrained_kwargs.get("load_in_8bit", False) or
+            from_pretrained_kwargs.get("load_in_4bit", False)
+        ), "Quantization not supported"
+
         official_model_name = loading.get_official_model_name(model_name)
 
         cfg = loading.get_pretrained_model_config(

@@ -160,15 +160,6 @@ def test_16bits():
     _ = model(model.tokenizer("Hello, world", return_tensors="pt")["input_ids"])
 
 
-@unittest.skipUnless(torch.cuda.is_available(), "GPU needed to execute test_8bits")
-def test_8bits():
-    """Check the 8 bits loading and inferences."""
-    model = HookedEncoder.from_pretrained(
-        MODEL_NAME, load_in_8bit=True, device_map="auto"
-    )
-    _ = model(model.tokenizer("Hello, world", return_tensors="pt")["input_ids"])
-
-
 def test_predictions(our_bert, huggingface_bert, tokenizer):
     input_ids = tokenizer("The [MASK] sat on the mat", return_tensors="pt")["input_ids"]
 

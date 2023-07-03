@@ -407,6 +407,8 @@ class Attention(nn.Module):
         else:
             raise ValueError(f"Invalid attention type: {self.attn_type}")
 
+        self.register_buffer("IGNORE", torch.tensor(torch.finfo(cfg.dtype).min))
+
         self.layer_id = layer_id
 
         # attn_scale is a constant that we divide the attention scores by pre-softmax. I'm not entirely sure why it matters, but it's probably a mix of softmax not being scale invariant and numerical stability?
@@ -631,7 +633,7 @@ class Attention(nn.Module):
                 :key_ctx_length,
             ],
             attn_scores,
-            torch.finfo(attn_scores.dtype).min,
+            self.IGNORE,
         )
 
     def rotary_rotate_qk(
