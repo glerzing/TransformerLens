@@ -198,6 +198,10 @@ def check_dtype(dtype, margin=0.01):
         # Check that generate doesn't throw an error
         _ = model.generate("Hello, World!")
 
+        del model
+        del hf_model
+        gc.collect()
+
 @pytest.mark.parametrize("dtype", [torch.float64, torch.float32])
 def test_dtypes(dtype):
     check_dtype(dtype, margin=5e-5)
