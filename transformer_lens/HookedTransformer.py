@@ -829,6 +829,10 @@ class HookedTransformer(HookedRootModule):
                 functions when compatible. For some models or arguments it doesn't work, especially for
                 models that are not internally loaded with HuggingFace's from_pretrained (e.g. SoLU models).
         """
+        assert not (
+            from_pretrained_kwargs.get("load_in_8bit", False)
+            or from_pretrained_kwargs.get("load_in_4bit", False)
+        ), "Quantization not supported"
 
         # Get the model name used in HuggingFace, rather than the alias.
         official_model_name = loading.get_official_model_name(model_name)
@@ -874,10 +878,6 @@ class HookedTransformer(HookedRootModule):
 
         # Create the HookedTransformer object
         model = cls(cfg, tokenizer, move_to_device=False)
-
-        dtype = from_pretrained_kwargs.get("torch_dtype", None)
-        if dtype is not None:
-            model = model.to(dtype)
 
         model.load_and_process_state_dict(
             state_dict,
@@ -1361,7 +1361,7 @@ class HookedTransformer(HookedRootModule):
         prepend_bos=True,
         return_type: Optional[str] = "input",
         verbose: bool = True,
-    ) -> Float[torch.Tensor, "batch pos_plus_new_tokens"]:
+    ) -> Union[Int[torch.Tensor, "batch pos_plus_new_tokens"], str]:
         """
         Sample tokens from the model until the model outputs eos_token or max_new_tokens is reached.
 
