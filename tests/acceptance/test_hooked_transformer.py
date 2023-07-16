@@ -183,7 +183,7 @@ def check_performance(tl_model, hf_model, margin=0.01):
     approximately the same confidence in the expected answer.
     """
     prompt = " Unable"
-    tokens = tl_model.tokenizer(prompt, return_tensors="pt")["input_ids"]
+    tokens = tl_model.tokenizer(prompt, return_tensors="pt")["input_ids"].to("cuda" if torch.cuda.is_available() else "cpu")
 
     expected_token = tl_model.tokenizer.encode(" to")[
         0
