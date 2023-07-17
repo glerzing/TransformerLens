@@ -835,6 +835,9 @@ class HookedTransformer(HookedRootModule):
             or from_pretrained_kwargs.get("load_in_4bit", False)
         ), "Quantization not supported"
 
+        if from_pretrained_kwargs.get("torch_dtype", None) == torch.float16 and device in ["cpu", None]:
+            logging.warning("float16 models may not work on CPU. Consider using a GPU or bfloat16.")
+
         # Get the model name used in HuggingFace, rather than the alias.
         official_model_name = loading.get_official_model_name(model_name)
 
@@ -983,16 +986,16 @@ class HookedTransformer(HookedRootModule):
             model_name (str, optional): checks the model name for special cases of state dict loading. Only used for
                 Redwood 2L model currently
         """
+        if self.cfg.dtype in [torch.float16, torch.bfloat16]:
+            logging.warning(
+                "With reduced precision, it is advised to use `from_pretrained_no_processing` instead of `from_pretrained`."
+            )
 
         state_dict = self.fill_missing_keys(state_dict)
         if fold_ln:
             if self.cfg.normalization_type not in ["LN", "LNPre"]:
                 logging.warning(
                     "You are not using LayerNorm, so the layer norm weights can't be folded! Skipping"
-                )
-            elif self.cfg.dtype == torch.float16:
-                logging.warning(
-                    "You are using reduced precision, so the layer norm weights can't be folded! Skipping"
                 )
             else:
                 # Note - you can run fold_layer_norm while normalization_type is LN, but this is not advised! It mostly
