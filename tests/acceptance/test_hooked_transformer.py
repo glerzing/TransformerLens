@@ -196,10 +196,15 @@ def check_performance(tl_model, hf_model, margin=0.01):
     assert tl_prob + margin > hf_prob
 
 
-def check_dtype(dtype, margin=0.01):
+def check_dtype(dtype, margin=0.01, no_processing=False):
     """Check the loading and inferences for different dtypes."""
     for model_path in ["gpt2", "roneneldan/TinyStories-33M", "EleutherAI/pythia-70m"]:
-        model = HookedTransformer.from_pretrained(model_path, torch_dtype=dtype)
+        if no_processing:
+            # For low precision, the processing is not advised.
+            model = HookedTransformer.from_pretrained_no_processing(model_path, torch_dtype=dtype)
+        else:
+            model = HookedTransformer.from_pretrained(model_path, torch_dtype=dtype)
+
         hf_model = AutoModelForCausalLM.from_pretrained(
             model_path,
             torch_dtype=dtype,
@@ -233,7 +238,7 @@ def test_half_precision(dtype):
     and some float16 operations require having a GPU.
     bfloat16 can be used without GPU, but surprisingly it doesn't give the same results in this case.
     """
-    check_dtype(dtype, margin=0.005)
+    check_dtype(dtype, margin=0.005, no_processing=True)
 
 
 @torch.no_grad()

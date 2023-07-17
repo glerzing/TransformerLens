@@ -986,7 +986,7 @@ class HookedTransformer(HookedRootModule):
             model_name (str, optional): checks the model name for special cases of state dict loading. Only used for
                 Redwood 2L model currently
         """
-        if self.cfg.dtype in [torch.float16, torch.bfloat16]:
+        if self.cfg.dtype not in [torch.float32, torch.float64]:
             logging.warning(
                 "With reduced precision, it is advised to use `from_pretrained_no_processing` instead of `from_pretrained`."
             )
