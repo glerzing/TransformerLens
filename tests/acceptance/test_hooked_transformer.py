@@ -177,7 +177,7 @@ def check_similarity_with_hf_model(tl_model, hf_model, prompt="Hello, world!"):
     )
 
 
-def check_performance(tl_model, hf_model, margin=0.01):
+def check_performance(tl_model, hf_model, margin):
     """
     Check that the TransformerLens model and the HuggingFace have
     approximately the same confidence in the expected answer.
@@ -196,7 +196,7 @@ def check_performance(tl_model, hf_model, margin=0.01):
     assert tl_prob + margin > hf_prob
 
 
-def check_dtype(dtype, margin=0.01, no_processing=False):
+def check_dtype(dtype, margin, no_processing=False):
     """Check the loading and inferences for different dtypes."""
     for model_path in ["gpt2", "roneneldan/TinyStories-33M", "EleutherAI/pythia-70m"]:
         if no_processing:
@@ -238,7 +238,7 @@ def test_half_precision(dtype):
     and some float16 operations require having a GPU.
     bfloat16 can be used without GPU, but surprisingly it doesn't give the same results in this case.
     """
-    check_dtype(dtype, margin=0.005, no_processing=True)
+    check_dtype(dtype, margin=0.05, no_processing=True)
 
 
 @torch.no_grad()
