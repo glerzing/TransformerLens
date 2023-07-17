@@ -137,8 +137,6 @@ def test_from_pretrained_no_processing(name, expected_loss):
     assert (reff_loss.item() - expected_loss) < 4e-5
 
 
-
-
 def test_process_weights_inplace():
     """Check that process_weights_ works"""
     model = HookedTransformer.from_pretrained_no_processing("gpt2-small")
@@ -146,6 +144,8 @@ def test_process_weights_inplace():
     loss = model.forward(text, return_type="loss")
     assert (loss.item() - loss_store["gpt2-small"]) < 4e-5
     assert isinstance(model.ln_final, LayerNormPre)
+
+
 def test_from_pretrained_revision():
     """
     Check that the from_pretrained parameter `revision` (= git version) works

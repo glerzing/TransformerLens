@@ -775,6 +775,7 @@ class HookedTransformer(HookedRootModule):
         n_devices=1,
         tokenizer=None,
         move_to_device=True,
+        fold_value_biases=True,
         **from_pretrained_kwargs,
     ) -> "HookedTransformer":
         """Class method to load in a pretrained model weights to the HookedTransformer format and optionally to do some
@@ -884,6 +885,7 @@ class HookedTransformer(HookedRootModule):
             fold_ln=fold_ln,
             center_writing_weights=center_writing_weights,
             center_unembed=center_unembed,
+            fold_value_biases=fold_value_biases,
             refactor_factored_attn_matrices=refactor_factored_attn_matrices,
         )
 
@@ -902,6 +904,7 @@ class HookedTransformer(HookedRootModule):
         center_writing_weights=False,
         center_unembed=False,
         refactor_factored_attn_matrices=False,
+        fold_value_biases=False,
         **from_pretrained_kwargs,
     ):
         """Wrapper for from_pretrained with all boolean flags related to simplifying the model set to False. Refer to
@@ -911,6 +914,7 @@ class HookedTransformer(HookedRootModule):
             fold_ln=fold_ln,
             center_writing_weights=center_writing_weights,
             center_unembed=center_unembed,
+            fold_value_biases=fold_value_biases,
             refactor_factored_attn_matrices=refactor_factored_attn_matrices,
             **from_pretrained_kwargs,
         )
@@ -985,6 +989,10 @@ class HookedTransformer(HookedRootModule):
             if self.cfg.normalization_type not in ["LN", "LNPre"]:
                 logging.warning(
                     "You are not using LayerNorm, so the layer norm weights can't be folded! Skipping"
+                )
+            elif self.cfg.dtype == torch.float16:
+                logging.warning(
+                    "You are using reduced precision, so the layer norm weights can't be folded! Skipping"
                 )
             else:
                 # Note - you can run fold_layer_norm while normalization_type is LN, but this is not advised! It mostly
